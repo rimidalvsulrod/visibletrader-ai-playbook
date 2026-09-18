@@ -6,6 +6,72 @@
       "runtimeExecutable": "npx",
       "runtimeArgs": ["--yes", "serve", "-l", "3000", "."],
       "port": 3000
+    },
+    {
+      "name": "landing-page",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["--yes", "serve", "-l", "3050", "."],
+      "port": 3050
+    },
+    {
+      "name": "course-slides",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["--yes", "serve", "-l", "3060", "C:\\Users\\vlad\\Documents\\VisibleTrader-AI-Course"],
+      "port": 3060
+    },
+    {
+      "name": "hormuz-edit",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["--yes", "serve", "-l", "3070", "C:\\Users\\vlad\\Documents\\hormuz-edit"],
+      "port": 3070
+    },
+    {
+      "name": "apple-edit",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["--yes", "serve", "-l", "3080", "C:\\Users\\vlad\\Documents\\visibletrader-apple-edit"],
+      "port": 3080
+    },
+    {
+      "name": "vt-ad",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["--yes", "serve", "-l", "3090", "C:\\Users\\vlad\\Documents\\visibletrader-ad"],
+      "port": 3090
+    },
+    {
+      "name": "prediction-market-app",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["--yes", "serve", "-l", "3100", "prediction-market-app"],
+      "port": 3100
+    },
+    {
+      "name": "kalshilarper-dev",
+      "runtimeExecutable": "vercel.cmd",
+      "runtimeArgs": ["dev", "--listen", "3300", "--cwd", "prediction-market-app", "--yes"],
+      "port": 3300
+    },
+    {
+      "name": "jarvis-edit",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["--yes", "serve", "-l", "3110", "iman-edit/talk"],
+      "port": 3110
+    },
+    {
+      "name": "prompter",
+      "runtimeExecutable": "npm.cmd",
+      "runtimeArgs": ["--prefix", "content-creator", "run", "dev"],
+      "port": 5173
+    },
+    {
+      "name": "neqo-dev",
+      "runtimeExecutable": "npm.cmd",
+      "runtimeArgs": ["--prefix", "neqo-digital", "run", "dev", "--", "-p", "3400"],
+      "port": 3400
+    },
+    {
+      "name": "onyx-qa",
+      "runtimeExecutable": "npm.cmd",
+      "runtimeArgs": ["--prefix", "onyx", "run", "dev:qa"],
+      "port": 3100
     }
   ]
 }
