@@ -345,6 +345,9 @@ h2 { font-size: clamp(2.3rem, 4.4vw, 3.6rem); line-height: 1.02; }
 .steps .step:nth-child(3) { transition-delay: 0.16s; }
 
 /* ============ Footer ============ */
+.seo-text { max-width: 1180px; margin: 0 auto; padding: 32px 28px 0; }
+.seo-text p { font-size: 13px; line-height: 1.7; color: var(--muted); }
+.seo-text strong { color: var(--dim); font-weight: 500; }
 .foot { max-width: 1180px; margin: 0 auto; padding: 40px 28px 56px; border-top: 1px solid var(--line); }
 .foot-row { display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; margin-bottom: 24px; }
 .socials { display: flex; gap: 10px; }
