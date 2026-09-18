@@ -72,31 +72,6 @@ img, svg { display: block; }
   100% { transform: translate(0, 0); }
 }
 
-/* ============ Ticker ============ */
-.ticker {
-  border-bottom: 1px solid var(--line);
-  background: rgba(10, 10, 11, 0.7);
-  backdrop-filter: blur(8px);
-  overflow: hidden;
-  white-space: nowrap;
-  mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
-  -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
-}
-.ticker-track {
-  display: inline-flex;
-  align-items: center;
-  gap: 22px;
-  padding: 9px 0;
-  animation: ticker 48s linear infinite;
-  font-family: var(--mono);
-  font-size: 0.68rem;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-.ticker-track i { font-style: normal; color: var(--gold); font-size: 0.5rem; }
-@keyframes ticker { to { transform: translateX(-50%); } }
-
 /* ============ Nav ============ */
 .nav {
   max-width: 1180px;
@@ -119,21 +94,6 @@ img, svg { display: block; }
   letter-spacing: 0.02em;
 }
 .brand-name { font-weight: 600; font-size: 0.98rem; letter-spacing: -0.01em; }
-.nav-meta {
-  display: inline-flex; align-items: center; gap: 9px;
-  font-family: var(--mono);
-  font-size: 0.68rem;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-.pulse { position: relative; width: 7px; height: 7px; border-radius: 50%; background: var(--up); }
-.pulse::after {
-  content: ""; position: absolute; inset: 0; border-radius: 50%;
-  background: var(--up);
-  animation: ping 2s var(--ease) infinite;
-}
-@keyframes ping { 0% { transform: scale(1); opacity: 0.7; } 100% { transform: scale(3); opacity: 0; } }
 
 /* ============ Entrance animation ============ */
 .rise {
@@ -411,7 +371,6 @@ h2 { font-size: clamp(2.3rem, 4.4vw, 3.6rem); line-height: 1.02; }
 }
 @media (max-width: 560px) {
   .nav { padding: 18px 20px; }
-  .nav-meta { display: none; }
   .hero { padding: 28px 20px 56px; }
   h1 { font-size: 3rem; }
   .lead { font-size: 1rem; }
