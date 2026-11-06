@@ -2,15 +2,57 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#050505">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="maxout">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/manifest.webmanifest">
 <title>maxout.so</title>
 <link rel="icon" href="/favicon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script>
+// Fit the screen like a native app (same method as Mimic). Styles: app.css "App shell".
+(function () {
+  var root = document.documentElement;
+  var phone = Math.min(screen.width, screen.height) < 520 && matchMedia('(pointer: coarse)').matches;
+  var standalone = navigator.standalone || matchMedia('(display-mode: standalone)').matches;
+  root.classList.toggle('standalone', !!standalone);
+  function fit() {
+    // Portrait only: turned sideways, the app turns back so it stays upright on the glass.
+    var angle = screen.orientation ? screen.orientation.angle : window.orientation || 0;
+    var sideways = phone && innerWidth > innerHeight;
+    root.classList.toggle('rot-l', sideways && angle !== 270 && angle !== -90);
+    root.classList.toggle('rot-r', sideways && (angle === 270 || angle === -90));
+    // iOS can lay out a home-screen app a status bar short of its space, leaving a dead strip at the bottom.
+    var fill = 0;
+    if (standalone && !sideways && document.body) {
+      var probe = document.createElement('div');
+      probe.style.cssText = 'position:fixed;visibility:hidden;padding-top:env(safe-area-inset-top,0px)';
+      document.body.appendChild(probe);
+      var insetTop = parseFloat(getComputedStyle(probe).paddingTop) || 0;
+      probe.remove();
+      var gap = Math.max(screen.width, screen.height) - innerHeight;
+      if (insetTop > 0 && gap >= 20 && gap <= 80) fill = gap;
+      else if (insetTop === 0 && gap >= 80 && gap <= 130) fill = gap / 2;
+    }
+    root.style.setProperty('--fill', fill + 'px');
+    root.classList.toggle('fill', fill > 0);
+  }
+  fit();
+  document.addEventListener('DOMContentLoaded', fit);
+  addEventListener('resize', fit);
+  addEventListener('orientationchange', function () { setTimeout(fit, 60); });
+})();
+</script>
 <link rel="stylesheet" href="/shared.css">
 <link rel="stylesheet" href="/app.css">
 </head>
 <body>
+<div id="scroller">
 <header class="topbar">
   <div class="topbar-inner">
     <a class="logo" href="/app" data-nav="/app">maxout.so</a>
@@ -39,6 +81,7 @@
           <button class="icon-btn" id="eye" title="Hide balance"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
         </div>
         <div class="pf-total"><span class="cur-icon big paper" id="pfIcon"></span><span id="pfTotal"></span></div>
+        <div class="pf-pnl" id="pfPnl"></div>
         <div class="pf-sub" id="pfSub"></div>
         <div class="pf-actions"><button class="btn-primary" id="topUp"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Top up</button></div>
       </section>
@@ -48,7 +91,7 @@
         <div id="positions"></div>
       </section>
 
-      <section class="block">
+      <section class="block" id="marketsBlock">
         <div class="block-head"><h2>Markets</h2><span class="feed-status"><span class="feed-dot"></span><span id="feedText"></span></span></div>
         <div class="tabs" id="tabs">
           <button class="tab on" data-f="all">All</button>
@@ -89,9 +132,12 @@
         <div class="ctype" id="ctype">
           <button data-ct="line" title="Line"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 17l5-6 4 3 8-9"/><path d="M3 21h18"/></svg></button>
           <button data-ct="candle" class="on" title="Candles"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M7 3v4M7 15v6M17 3v2M17 13v8"/><rect x="5" y="7" width="4" height="8" rx="1"/><rect x="15" y="5" width="4" height="8" rx="1"/></svg></button>
+          <span class="ctype-sep"></span>
+          <button id="ribbonBtn" class="ribbon-btn" title="EMA ribbon (EMAs 8 to 55)"><i class="ribbon-swatch"></i>EMA ribbon</button>
         </div>
         <div class="tk-stats" id="tkStats"></div>
       </div>
+      <section class="tk-pos" id="tkPos" hidden></section>
       <section class="tk-about">
         <h2 id="tkAboutH"></h2>
         <p id="tkAbout"></p>
@@ -104,6 +150,23 @@
     <div class="card panel trade" id="trade"></div>
   </aside>
 </div>
+
+<div class="mfoot">Paper trading demo · prices from Hyperliquid</div>
+</div>
+
+<!-- phones: trade dock on a ticker page, and the tab bar -->
+<div class="dock" id="dock" hidden>
+  <div class="dock-price"><span id="dockSym"></span><b id="dockPrice"></b></div>
+  <button class="dock-btn long" data-dock="long">Long</button>
+  <button class="dock-btn short" data-dock="short">Short</button>
+</div>
+<nav class="tabbar" id="tabbar">
+  <a href="/app" data-tab="home"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11l8-7 8 7v8a1 1 0 01-1 1h-4v-6H9v6H5a1 1 0 01-1-1z"/></svg>Home</a>
+  <a href="/app#markets" data-tab="markets"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/></svg>Markets</a>
+  <a href="#search" data-tab="search"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>Search</a>
+  <a href="#account" data-tab="account"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>Account</a>
+</nav>
+<div class="aside-scrim" id="asideScrim"></div>
 
 <div class="sheet-root" id="sheet">
   <div class="sheet-backdrop" data-close></div>

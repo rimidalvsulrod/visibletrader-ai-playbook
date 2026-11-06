@@ -1,4 +1,35 @@
 const $=s=>document.querySelector(s);
+const isPhone=()=>innerWidth<1000;
+const scroller=()=>isPhone()?$('#scroller'):document.scrollingElement;
+
+/* ---------- app feel (same methods as Mimic) ---------- */
+// Safari ignores user-scalable=no, so pinch zoom is stopped here instead.
+for(const type of ['gesturestart','gesturechange','gestureend'])document.addEventListener(type,e=>e.preventDefault(),{passive:false});
+// Haptics: Android uses navigator.vibrate. On iPhone the only haptic a page can reach is the tick iOS plays
+// when a real tap flips an <input type=checkbox switch>, so a transparent label for a hidden switch is slipped
+// under the finger on touch-down; the tap flips it with its own trust and passes the click on.
+const IS_IOS=/iP(hone|od|ad)/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+const HAPTIC_TARGETS='button, a[href], .tappable';
+const PULSES={light:[8],success:[10,70,14],error:[18,60,18,60,18]};
+function haptic(kind='light'){if(!IS_IOS&&navigator.vibrate)try{navigator.vibrate(PULSES[kind]||PULSES.light)}catch(e){}}
+if(IS_IOS){
+  const toggle=Object.assign(document.createElement('input'),{type:'checkbox',id:'haptic-switch',tabIndex:-1});
+  toggle.setAttribute('switch','');toggle.setAttribute('aria-hidden','true');
+  toggle.style.cssText='position:fixed;top:0;left:0;width:1px;height:1px;margin:0;opacity:0;pointer-events:none';
+  const pad=document.createElement('label');pad.htmlFor='haptic-switch';pad.setAttribute('aria-hidden','true');
+  pad.style.cssText='position:fixed;top:0;left:0;width:48px;height:48px;z-index:2147483647';
+  document.documentElement.append(toggle,pad);
+  let hideTimer=0;const hide=()=>{pad.style.transform='translate(-200px,-200px)'};hide();
+  document.addEventListener('pointerdown',e=>{
+    if(e.pointerType!=='touch'||e.target===pad)return;
+    const el=e.target.closest?.(HAPTIC_TARGETS);
+    if(!el||el.disabled||el.closest('input, textarea, select'))return;
+    pad.style.transform=`translate(${e.clientX-24}px,${e.clientY-24}px)`;
+    clearTimeout(hideTimer);hideTimer=setTimeout(hide,1500);
+  },true);
+  // pass the tap through to whatever is under the pad
+  pad.addEventListener('click',e=>{hide();const el=document.elementFromPoint(e.clientX,e.clientY);if(el&&el!==pad)el.click()});
+}
 const KEY='maxout-clone-v1';
 const today=()=>new Date().toISOString().slice(0,10);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -9,20 +40,45 @@ const S=Object.assign({cur:'paper',paper:1000,refilled:today(),positions:[],sel:
   (()=>{try{return JSON.parse(localStorage.getItem(KEY))||{}}catch(e){return {}}})());
 if(S.refilled!==today()){if(S.paper<1000)S.paper=1000;S.refilled=today()}
 S.cur='paper';
-const save=()=>{try{localStorage.setItem(KEY,JSON.stringify({paper:S.paper,refilled:S.refilled,positions:S.positions,sel:S.sel,side:S.side,amount:S.amount,mult:S.mult,hidden:S.hidden,tf:S.tf,ct:S.ct}))}catch(e){}};
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify({paper:S.paper,refilled:S.refilled,positions:S.positions,history:S.history||[],sel:S.sel,side:S.side,amount:S.amount,mult:S.mult,hidden:S.hidden,tf:S.tf,ct:S.ct,ribbon:!!S.ribbon}))}catch(e){}};
 
-let CFG={googleClientId:null,accounts:false};
-let ACC=null; // {user, paper, positions, history} when signed in
+/* ---------- accounts: username + password, everything saved in this browser ----------
+   Passwords are never stored; only a PBKDF2-SHA256 hash with a random salt. */
+const UKEY='maxout-users',SKEY='maxout-session';
+const USERS=(()=>{try{return JSON.parse(localStorage.getItem(UKEY))||{}}catch(e){return {}}})();
+const saveUsers=()=>{try{localStorage.setItem(UKEY,JSON.stringify(USERS))}catch(e){}};
+let ACC=null; // the signed-in user's record: {user:{name}, salt, hash, paper, refilled, positions, history, created}
 const signedIn=()=>!!ACC;
-const paperBal=()=>signedIn()?ACC.paper:S.paper;
-const positions=()=>signedIn()?ACC.positions:S.positions;
-
-async function api(path,opts={}){
-  const r=await fetch('/api/'+path,{method:opts.body?'POST':(opts.method||'GET'),headers:opts.body?{'content-type':'application/json'}:{},body:opts.body?JSON.stringify(opts.body):undefined,credentials:'same-origin'});
-  const j=await r.json().catch(()=>({error:'Network error'}));
-  if(!r.ok) throw Object.assign(new Error(j.error||'Request failed'),{status:r.status});
-  return j;
+const acct=()=>ACC||S; // the account trades go to (guest = S)
+const paperBal=()=>acct().paper;
+const positions=()=>acct().positions;
+const persist=()=>signedIn()?saveUsers():save();
+function setSession(name){try{name?localStorage.setItem(SKEY,name):localStorage.removeItem(SKEY)}catch(e){}}
+function refill(a){if(a.refilled!==today()){if(a.paper<1000)a.paper=1000;a.refilled=today()}}
+async function hashPw(pw,saltB64){
+  const salt=saltB64?Uint8Array.from(atob(saltB64),c=>c.charCodeAt(0)):crypto.getRandomValues(new Uint8Array(16));
+  const key=await crypto.subtle.importKey('raw',new TextEncoder().encode(pw),'PBKDF2',false,['deriveBits']);
+  const bits=await crypto.subtle.deriveBits({name:'PBKDF2',salt,iterations:150000,hash:'SHA-256'},key,256);
+  const b64=u=>btoa(String.fromCharCode(...new Uint8Array(u)));
+  return {salt:b64(salt),hash:b64(bits)};
 }
+async function signUp(name,pw){
+  const id=name.toLowerCase();
+  if(!/^[a-z0-9_]{3,20}$/.test(id)) throw new Error('Username: 3–20 letters, numbers or _');
+  if(pw.length<6) throw new Error('Password: at least 6 characters');
+  if(USERS[id]) throw new Error('That username is taken on this browser');
+  const {salt,hash}=await hashPw(pw);
+  USERS[id]={user:{name},salt,hash,paper:1000,refilled:today(),positions:[],history:[],created:Date.now()};
+  saveUsers();return id;
+}
+async function logIn(name,pw){
+  const id=name.toLowerCase(),u=USERS[id];
+  if(!u) throw new Error('No account with that username on this browser');
+  const {hash}=await hashPw(pw,u.salt);
+  if(hash!==u.hash) throw new Error('Wrong password');
+  return id;
+}
+function startSession(id){ACC=USERS[id];refill(ACC);ACC.history??=[];saveUsers();setSession(id);renderAll()}
 
 const fmt2=v=>v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 function money(v,{icon=true,size='sm'}={}){
@@ -44,32 +100,55 @@ function renderHeader(){
   const [i,c]=fmt2(portfolio()).split('.');
   $('#pfTotal').innerHTML=S.hidden?'••••••':`${i}<span class="cents">.${c}</span>`;
   $('#pfIcon').className='cur-icon big '+S.cur;
+  const open=S.cur==='paper'?positions():[],opnl=open.reduce((a,p)=>a+pnl(p),0);
+  $('#pfPnl').innerHTML=open.length&&!S.hidden?`<span class="pnl-pill ${opnl>=0?'up':'down'}">${opnl>=0?'▲ +':'▼ −'}${fmt2(Math.abs(opnl))} open P&amp;L</span>`:'';
   $('#pfSub').innerHTML=S.cur==='cash'?'Get Cash to trade for real stakes'
     :signedIn()?'Practice with Paper. It refills to 1,000 every day.'
     :'Practice with Paper. It refills to 1,000 every day. <button class="link" data-signin>Sign in</button> to keep it.';
   const u=ACC?.user;
   $('#who').innerHTML=u
-    ?`<button class="avatar" id="avatar" title="${esc(u.email)}">${u.picture?`<img src="${esc(u.picture)}" alt="" referrerpolicy="no-referrer">`:esc((u.name||u.email)[0].toUpperCase())}</button>`
+    ?`<button class="avatar" id="avatar" title="${esc(u.name)}">${esc(u.name[0].toUpperCase())}</button>`
     :`<button class="btn-signin" data-signin>Sign in</button>`;
 }
 
+/* A position as a card: live P&L, a liquidation meter, and a call to action that changes with the trade. */
+function posCard(p){
+  const m=BY_SYM[p.sym],v=pnl(p),pct=v/p.amount*100,win=v>0;
+  const liq=p.entry*(1+(p.side==='long'?-1:1)/p.mult);
+  const risk=Math.min(1,Math.max(0,-v/p.amount)); // 0 = safe, 1 = liquidated
+  const state=win?'win':risk>.7?'danger':'lose';
+  const cta=win
+    ?`<button class="btn-tp" data-close-pos="${p.id}"><span>Take profit</span><b>+${fmt2(v)}</b></button>`
+    :`<button class="btn-close" data-close-pos="${p.id}">${risk>.7?'Cut loss':'Close'}</button>`;
+  return `<div class="pcard ${state}">
+    <a class="pc-id" href="/m/${p.sym}" data-nav="/m/${p.sym}">${iconHTML(p.sym,36)}<div class="stack">
+      <div class="sym">${p.sym}<span class="tag ${p.side}">${p.side==='long'?'LONG':'SHORT'} ${p.mult}×</span></div>
+      <div class="pos-meta">${fmt2(p.amount)} in · entry ${fmtPrice(p.entry)}</div></div></a>
+    <div class="pc-pnl">
+      <div class="pc-big ${v>=0?'up':'down'}">${v>=0?'+':'−'}${fmt2(Math.abs(v))}<small>${v>=0?'+':'−'}${Math.abs(pct).toFixed(1)}%</small></div>
+      <div class="pc-meter" title="How close this trade is to liquidation"><i style="width:${(risk*100).toFixed(1)}%"></i></div>
+      <div class="pc-sub">${state==='win'?'In profit. Lock it in before it turns.':state==='danger'?`<b class="down">Near liquidation</b> at ${fmtPrice(liq)}`:`Liquidates at ${fmtPrice(liq)}`}</div>
+    </div>
+    ${cta}
+  </div>`;
+}
 function renderPositions(){
   const el=$('#positions');
   const list=S.cur==='paper'?positions():[];
   if(!list.length){
     el.innerHTML=`<div class="empty">No open positions. ${S.cur==='paper'?'<b>Pick a market below.</b>':'<b>Top up, then pick a market.</b>'}</div>`;return;
   }
-  el.innerHTML=`<div class="card">${list.map(p=>{
-    const m=BY_SYM[p.sym],v=pnl(p),pct=v/p.amount*100;
-    return `<div class="pos">
-      <a class="mrow-id" href="/m/${p.sym}" data-nav="/m/${p.sym}">${iconHTML(p.sym,34)}<div class="stack"><div class="sym">${p.sym}<span class="tag ${p.side}">${p.side==='long'?'LONG':'SHORT'} ${p.mult}×</span></div>
-      <div class="pos-meta">${fmt2(p.amount)} @ ${fmtPrice(p.entry)} → ${fmtPrice(m.price)}</div></div></a>
-      <div class="pos-pnl ${v>=0?'up':'down'}">${v>=0?'+':'−'}${fmt2(Math.abs(v))}<small>${v>=0?'+':'−'}${Math.abs(pct).toFixed(1)}%</small></div>
-      <button class="btn-close" data-close-pos="${p.id}">Close</button></div>`}).join('')}</div>`;
+  el.innerHTML=`<div class="pcards">${list.map(posCard).join('')}</div>`;
+}
+function renderTickerPositions(){
+  const el=$('#tkPos');if(!el)return;
+  const list=S.cur==='paper'?positions().filter(p=>p.sym===S.sel):[];
+  el.hidden=!list.length;
+  el.innerHTML=list.length?`<h2>Your ${S.sel} position${list.length>1?'s':''}</h2><div class="pcards">${list.map(posCard).join('')}</div>`:'';
 }
 
 function renderHistory(){
-  const h=ACC?.history||[];
+  const h=(acct().history||[]).slice(0,20);
   $('#historyBlock').hidden=!h.length;
   if(!h.length) return;
   $('#history').innerHTML=`<div class="card">${h.map(p=>`<div class="pos">
@@ -112,6 +191,8 @@ function renderSearchPop(){
 /* ---------- trade panel ---------- */
 const MULTS=[10,50,100,500,1000];
 const multToSlider=m=>Math.log10(m)/3*1000;
+// risk colour runs green -> yellow -> orange -> red -> magenta along the log scale
+const multLevel=m=>{const t=Math.log10(Math.max(1,m))/3;const st=[[0,[47,224,138]],[.33,[250,204,21]],[.6,[255,138,61]],[.8,[255,84,112]],[1,[232,72,255]]];let i=0;while(i<st.length-2&&t>st[i+1][0])i++;const [t0,a]=st[i],[t1,b]=st[i+1],f=Math.min(1,Math.max(0,(t-t0)/(t1-t0)));const c=a.map((x,k)=>Math.round(x+(b[k]-x)*f));return {c:`rgb(${c})`,w:m<=10?'Chill':m<=50?'Bold':m<=200?'Spicy':m<1000?'Degen':'Max it out'}};
 const sliderToMult=v=>{const m=Math.round(Math.pow(10,v/1000*3));return m<10?m:m<100?Math.round(m/5)*5:m<1000?Math.round(m/10)*10:1000};
 
 function renderTrade(){
@@ -132,13 +213,14 @@ function renderTrade(){
     <div class="field">
       <div class="field-head">Multiplier<span class="mult" id="tMult"></span></div>
       <input type="range" class="slider" id="tSlider" min="0" max="1000" step="1">
-      <div class="chips" id="multChips">${MULTS.map(v=>`<button class="chip" data-mult="${v}">${v}×</button>`).join('')}</div>
+      <div class="chips" id="multChips">${MULTS.map(v=>`<button class="chip" data-mult="${v}" style="--lv:${multLevel(v).c}">${v}×</button>`).join('')}</div>
     </div>
     <div class="summary">
       <div>Exposure<b id="sExp"></b></div>
       <div>Liquidation<b id="sLiq"></b></div>
       <div>Max loss<b id="sLoss"></b></div>
     </div>
+    <div class="move" id="tMove"></div>
     <button class="btn-primary btn-block" id="tGo"></button>`;
   $('#tSlider').value=multToSlider(S.mult);
   updateTrade();
@@ -155,7 +237,6 @@ function chartSVG(m){
     <span class="live-dot" style="left:${last[0]/w*100}%;top:${last[1]/h*100}%;background:${col}"></span>`;
 }
 
-let busy=false;
 function updateTrade(){
   const m=BY_SYM[S.sel];if(!$('#tGo'))return;
   if($('#tPrice')){
@@ -163,20 +244,22 @@ function updateTrade(){
     $('#tChg').className='c '+(m.chg>=0?'up':'down');$('#tChg').textContent=fmtChg(m.chg)+' today';
     $('#tChart').innerHTML=chartSVG(m);
   }
+  const amt=S.amount||0,liq=m.price*(1+(S.side==='long'?-1:1)/S.mult);
   document.querySelectorAll('.seg button').forEach(b=>b.classList.toggle('on',b.dataset.side===S.side));
   $('#tAvail').innerHTML=money(balance());
   document.querySelectorAll('#amtChips .chip').forEach(b=>b.classList.toggle('on',+b.dataset.amt===S.amount));
   document.querySelectorAll('#multChips .chip').forEach(b=>b.classList.toggle('on',+b.dataset.mult===S.mult));
-  $('#tMult').textContent=S.mult+'×';
+  const lv=multLevel(S.mult);
+  $('#tMult').innerHTML=`<span class="risk-word" style="color:${lv.c}">${lv.w}</span><span class="mult-num" style="color:${lv.c}">${S.mult}×</span>`;
   $('#tSlider').style.setProperty('--p',(multToSlider(S.mult)/10)+'%');
-  const amt=S.amount||0,liq=m.price*(1+(S.side==='long'?-1:1)/S.mult);
+  $('#tSlider').style.setProperty('--thumb',lv.c);
+  $('#tMove').innerHTML=amt?`Every 1% your way <b class="up">+${fmt2(amt*S.mult/100)}</b><span>·</span>1% against <b class="down">−${fmt2(Math.min(amt,amt*S.mult/100))}</b>`:'';
   $('#sExp').innerHTML=money(amt*S.mult);
   $('#sLiq').textContent=fmtPrice(liq);
   $('#sLoss').innerHTML=money(amt);
   const go=$('#tGo');
   go.className='btn-primary btn-block';
   if(S.cur==='cash'){go.disabled=false;go.textContent='Get Cash to trade'}
-  else if(busy){go.disabled=true;go.textContent='Placing…'}
   else if(!canTrade(m)){go.disabled=true;go.textContent='Closed · stocks trade 4am–8pm ET'}
   else if(!amt||amt>paperBal()){go.disabled=true;go.textContent=amt?'Not enough Paper':'Enter an amount'}
   else{go.disabled=false;go.classList.add(S.side);go.textContent=`${S.side==='long'?'Long':'Short'} ${m.sym} · ${S.mult}×`}
@@ -190,6 +273,8 @@ function renderTicker(){
   $('#tkId').innerHTML=`${iconHTML(m.sym,48)}<div class="stack"><span class="sym">${m.sym}</span><span class="name">${m.name}</span></div>`;
   $('#tf').innerHTML=Object.entries(TF).map(([k,t])=>`<button data-tf="${k}" class="${k===S.tf?'on':''}">${k==='live'?'<i></i>':''}${t.label}</button>`).join('');
   document.querySelectorAll('#ctype button').forEach(b=>b.classList.toggle('on',b.dataset.ct===S.ct));
+  $('#ribbonBtn').classList.toggle('on',!!S.ribbon);
+  renderTickerPositions();
   $('#tkAboutH').textContent='About '+m.name;
   $('#tkAbout').textContent=ABOUT[m.sym]||'';
   updateTickerPrice();
@@ -217,7 +302,7 @@ async function buildChart(){
     timeScale:{borderVisible:false,timeVisible:S.tf!=='3m',secondsVisible:false,rightOffset:4},
     crosshair:{mode:0,vertLine:{color:'rgba(255,255,255,.25)',labelBackgroundColor:'#1c1c1f'},horzLine:{color:'rgba(255,255,255,.25)',labelBackgroundColor:'#1c1c1f'}},
     watermark:{visible:true,text:'maxout.so',color:'rgba(255,255,255,.06)',fontSize:40,fontFamily:'Geist, sans-serif',fontStyle:'600',horzAlign:'right',vertAlign:'top'},
-    handleScroll:true,handleScale:true,
+    handleScroll:{mouseWheel:true,pressedMouseMove:true,horzTouchDrag:true,vertTouchDrag:false},handleScale:{axisPressedMouseMove:true,mouseWheel:true,pinch:true},
   });
   const prec=precisionFor(m.price),pf={type:'price',precision:prec,minMove:1/10**prec};
   const main=S.ct==='candle'
@@ -225,13 +310,15 @@ async function buildChart(){
     :chart.addAreaSeries({lineColor:m.chg>=0?'#2fe08a':'#ff5470',topColor:m.chg>=0?'rgba(47,224,138,.25)':'rgba(255,84,112,.25)',bottomColor:'rgba(0,0,0,0)',lineWidth:2,priceFormat:pf});
   const vol=chart.addHistogramSeries({priceScaleId:'vol',priceFormat:{type:'volume'},lastValueVisible:false,priceLineVisible:false});
   chart.priceScale('vol').applyOptions({scaleMargins:{top:.85,bottom:0}});
-  CH={chart,main,vol,sym:m.sym,tf:S.tf,ct:S.ct,bars:[]};
+  CH={chart,main,vol,sym:m.sym,tf:S.tf,ct:S.ct,bars:[],lines:[]};
   const mine=CH;
   try{
     const bars=await candles(m.sym,S.tf);
     if(CH!==mine)return;
     mine.bars=bars;
     setSeries();
+    if(S.ribbon)addRibbon();
+    syncPriceLines();
     chart.timeScale().fitContent();
     $('#tkLoading').hidden=true;
     updateTickerPrice();
@@ -252,6 +339,32 @@ function tickChart(){
   if(now>=last.time+step&&CH.tf!=='3m'){last={time:last.time+step*Math.floor((now-last.time)/step),open:last.close,high:last.close,low:last.close,close:last.close,value:0};CH.bars.push(last)}
   last.close=m.price;last.high=Math.max(last.high,m.price);last.low=Math.min(last.low,m.price);
   CH.main.update(CH.ct==='candle'?{time:last.time,open:last.open,high:last.high,low:last.low,close:last.close}:{time:last.time,value:last.close});
+  tickRibbon();
+}
+
+/* EMA ribbon, exactly as VisibleTrader's indicators.js draws it: EMAs 8 to 55, hot pink to blue, 1.5px. */
+const RIBBON_N=[8,11,14,18,22,27,33,40,47,55];
+const RIBBON_C=['#ff2e5b','#f8336b','#ec387c','#df3e8e','#cf44a1','#bd4ab4','#a851c7','#9157d9','#795deb','#6262ff'];
+function emaArr(a,n){const o=new Array(a.length).fill(null),k=2/(n+1);let e=null,c=0;for(let i=0;i<a.length;i++){if(a[i]==null)continue;e=e==null?a[i]:a[i]*k+e*(1-k);if(++c>=n)o[i]=e}return o}
+function ribbonData(i){const C=CH.bars.map(b=>b.close),e=emaArr(C,RIBBON_N[i]);return CH.bars.map((b,j)=>e[j]==null?{time:b.time}:{time:b.time,value:e[j]})}
+function addRibbon(){
+  if(!CH||CH.ribbon)return;
+  CH.ribbon=RIBBON_N.map((n,i)=>CH.chart.addLineSeries({color:RIBBON_C[i],lineWidth:1.5,priceLineVisible:false,lastValueVisible:false,crosshairMarkerVisible:false}));
+  if(CH.bars.length)CH.ribbon.forEach((s,i)=>s.setData(ribbonData(i)));
+}
+function removeRibbon(){if(CH?.ribbon){CH.ribbon.forEach(s=>CH.chart.removeSeries(s));CH.ribbon=null}}
+function tickRibbon(){if(!CH?.ribbon||!CH.bars.length)return;const C=CH.bars.map(b=>b.close),t=CH.bars.at(-1).time;CH.ribbon.forEach((s,i)=>{const v=emaArr(C,RIBBON_N[i]).at(-1);if(v!=null)s.update({time:t,value:v})})}
+/* Entry and liquidation lines for your open positions on this market */
+function syncPriceLines(){
+  if(!CH)return;
+  (CH.lines||[]).forEach(l=>CH.main.removePriceLine(l));
+  CH.lines=[];
+  if(S.cur!=='paper')return;
+  for(const p of positions().filter(p=>p.sym===CH.sym)){
+    const liq=p.entry*(1+(p.side==='long'?-1:1)/p.mult);
+    CH.lines.push(CH.main.createPriceLine({price:p.entry,color:'rgba(244,244,245,.55)',lineWidth:1,lineStyle:2,axisLabelVisible:true,title:`${p.side==='long'?'Long':'Short'} ${p.mult}×`}));
+    CH.lines.push(CH.main.createPriceLine({price:liq,color:'#ff5470',lineWidth:1,lineStyle:1,axisLabelVisible:true,title:'Liq'}));
+  }
 }
 
 /* ---------- routing: /app = dashboard, /m/SYM = ticker page ---------- */
@@ -259,100 +372,94 @@ function route(){
   const m=/^\/m\/([A-Za-z]+)/.exec(location.pathname);
   return m&&BY_SYM[m[1].toUpperCase()]?{view:'ticker',sym:m[1].toUpperCase()}:{view:'dash'};
 }
-function go(path){if(path!==location.pathname)history.pushState(null,'',path);applyRoute();scrollTo({top:0})}
+function go(path){if(path!==location.pathname)history.pushState(null,'',path);closeTrade();applyRoute();scroller().scrollTo({top:0})}
 function applyRoute(){
   const r=route();
   $('#dashView').hidden=r.view!=='dash';
   $('#tickerView').hidden=r.view!=='ticker';
   document.body.classList.toggle('ticker-mode',r.view==='ticker');
-  if(r.view==='ticker'){S.sel=r.sym;save();renderTrade();renderTicker()}
+  $('#dock').hidden=r.view!=='ticker';
+  document.querySelectorAll('#tabbar a').forEach(a=>a.classList.toggle('on',a.dataset.tab===(r.view==='ticker'?'markets':'home')));
+  if(r.view==='ticker'){S.sel=r.sym;save();renderTrade();renderTicker();updateDock()}
   else{document.title='maxout.so';if(CH){CH.chart.remove();CH=null}renderAll()}
 }
 addEventListener('popstate',applyRoute);
 
+/* ---------- phones: the trade panel opens as a bottom sheet from the dock ---------- */
+function openTrade(side){if(side){S.side=side;save()}updateTrade();document.body.classList.add('trade-open');haptic()}
+function closeTrade(){document.body.classList.remove('trade-open')}
+function updateDock(){const m=BY_SYM[S.sel];if(!m||$('#dock').hidden)return;$('#dockSym').textContent=m.sym;$('#dockPrice').textContent=fmtPrice(m.price);$('#dockPrice').className=m.chg>=0?'up':'down'}
+function searchSheet(){
+  openSheet(`<h3>Search</h3><input class="msearch" id="msearch" placeholder="Stocks and crypto" autocomplete="off" autocapitalize="off" spellcheck="false"><div class="msr" id="msr"></div>`);
+  renderMobileSearch('');setTimeout(()=>$('#msearch')?.focus(),60);
+}
+function renderMobileSearch(q){
+  const list=q?visibleMarkets(q):MARKETS;
+  $('#msr').innerHTML=list.slice(0,30).map(m=>`<a class="sp-row" href="/m/${m.sym}" data-nav="/m/${m.sym}">${iconHTML(m.sym,34)}<span class="stack"><span class="sym">${m.sym}</span><span class="name">${m.name}</span></span><span class="sp-r"><span class="mono">${fmtPrice(m.price)}</span><span class="mono ${m.chg>=0?'up':'down'}">${fmtChg(m.chg)}</span></span></a>`).join('')||`<div class="sp-empty">No markets match “${esc(q)}”</div>`;
+}
+
 /* ---------- sheets ---------- */
 function openSheet(html){$('#sheetBody').innerHTML=html;$('#sheet').classList.add('open')}
 function closeSheet(){$('#sheet').classList.remove('open')}
-const devLogin=()=>CFG.googleClientId==='dev-client'&&/^(localhost|127\.)/.test(location.hostname);
-function loginSheet(){
-  const live=CFG.googleClientId&&CFG.accounts&&!devLogin();
-  openSheet(`<h3>Log in</h3><p>Welcome to Maxout.</p>
-  <div class="opts">
-    ${live?`<div class="gbtn" id="gbtn"><div class="gbtn-wait">Loading Google…</div></div>`
-      :devLogin()?`<form class="devlogin" id="devForm"><input id="devEmail" type="email" placeholder="you@example.com (local test login)" required><button class="btn-oauth">Continue (dev)</button></form>`
-      :`<button class="btn-oauth" data-gnotready>${GLOGO}Continue with Google</button>`}
-    <button class="btn-oauth soon">${ALOGO}Continue with Apple<span class="pill">COMING SOON</span></button>
-  </div>
-  <div class="foot">Don’t have an account? <b>Sign up</b> happens automatically.</div>
-  <div class="foot small">Your Paper balance, positions and history are saved to your account.</div>`);
-  if(live) mountGoogle();
+function loginSheet(mode='login'){
+  const up=mode==='signup';
+  openSheet(`<h3>${up?'Create account':'Log in'}</h3><p>${up?'Get 1,000 Paper to start. It refills every day.':'Welcome back to Maxout.'}</p>
+  <form class="authform" id="authForm" data-mode="${mode}" autocomplete="on">
+    <input id="authUser" name="username" placeholder="Username" autocomplete="username" autocapitalize="off" spellcheck="false" required>
+    <input id="authPw" name="password" type="password" placeholder="Password" autocomplete="${up?'new-password':'current-password'}" required>
+    <div class="autherr" id="authErr"></div>
+    <button class="btn-primary btn-block" id="authGo">${up?'Create account':'Log in'}</button>
+  </form>
+  <div class="foot">${up?'Have an account? <button class="link" data-auth="login">Log in</button>':'Don’t have an account? <button class="link" data-auth="signup">Sign up</button>'}</div>
+  <div class="foot small">Accounts are saved in this browser only.</div>`);
+  setTimeout(()=>$('#authUser')?.focus(),50);
 }
-const GLOGO=`<svg width="18" height="18" viewBox="0 0 24 24"><path d="M21.6 12.2c0-.7-.1-1.4-.2-2H12v3.8h5.4a4.6 4.6 0 01-2 3v2.5h3.2c1.9-1.7 3-4.3 3-7.3z" fill="#4285f4"/><path d="M12 22c2.7 0 5-.9 6.6-2.4l-3.2-2.5c-.9.6-2 1-3.4 1-2.6 0-4.8-1.8-5.6-4.1H3.1v2.6A10 10 0 0012 22z" fill="#34a853"/><path d="M6.4 14a6 6 0 010-3.9V7.5H3.1a10 10 0 000 9z" fill="#fbbc05"/><path d="M12 6c1.5 0 2.8.5 3.8 1.5l2.9-2.9A10 10 0 003.1 7.5l3.3 2.6C7.2 7.8 9.4 6 12 6z" fill="#ea4335"/></svg>`;
-const ALOGO=`<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.6 12.6c0-2.6 2.1-3.8 2.2-3.9-1.2-1.8-3.1-2-3.7-2-1.6-.2-3.1.9-3.9.9s-2-.9-3.4-.9C7 6.8 5.3 7.8 4.4 9.4c-1.8 3.2-.5 7.9 1.3 10.5.9 1.3 1.9 2.7 3.3 2.6 1.3-.1 1.8-.9 3.4-.9s2 .9 3.4.8c1.4 0 2.3-1.3 3.2-2.6 1-1.5 1.4-2.9 1.4-3-.1 0-2.8-1-2.8-4.2zM15 4.8c.7-.9 1.2-2.1 1.1-3.3-1 0-2.3.7-3 1.6-.7.8-1.3 2-1.1 3.2 1.1.1 2.3-.6 3-1.5z"/></svg>`;
-let gisLoaded;
-function loadGIS(){return gisLoaded??=new Promise((ok,bad)=>{const s=document.createElement('script');s.src='https://accounts.google.com/gsi/client';s.async=true;s.onload=ok;s.onerror=bad;document.head.appendChild(s)})}
-async function mountGoogle(){
+async function submitAuth(form){
+  const name=$('#authUser').value.trim(),pw=$('#authPw').value,err=$('#authErr'),btn=$('#authGo');
+  err.textContent='';btn.disabled=true;
   try{
-    await loadGIS();
-    google.accounts.id.initialize({client_id:CFG.googleClientId,callback:r=>finishLogin(r.credential),ux_mode:'popup'});
-    const el=$('#gbtn');if(!el)return;el.innerHTML='';
-    google.accounts.id.renderButton(el,{theme:'filled_black',size:'large',shape:'pill',text:'continue_with',width:Math.min(340,el.clientWidth||340)});
-  }catch(e){const el=$('#gbtn');if(el)el.innerHTML='<div class="gbtn-wait">Could not load Google sign-in</div>'}
-}
-async function finishLogin(credential){
-  try{
-    await api('auth',{body:{credential}});
-    closeSheet();
-    await loadAccount();
-    // bring a guest's open trades along? Keep it simple: guests start fresh on the server.
-    toast(`Signed in as ${esc(ACC.user.email)}`);
-  }catch(e){toast(esc(e.message))}
+    const id=form.dataset.mode==='signup'?await signUp(name,pw):await logIn(name,pw);
+    startSession(id);closeSheet();
+    toast(form.dataset.mode==='signup'?`Welcome, ${esc(USERS[id].user.name)}. You have 1,000 Paper.`:`Logged in as ${esc(USERS[id].user.name)}`);
+  }catch(e){err.textContent=e.message;btn.disabled=false}
 }
 function accountSheet(){
   const u=ACC.user,h=ACC.history||[],wins=h.filter(p=>p.pnl>0).length,net=h.reduce((a,p)=>a+p.pnl,0);
-  openSheet(`<div class="acct-pic">${u.picture?`<img src="${esc(u.picture)}" alt="" referrerpolicy="no-referrer">`:esc((u.name||u.email)[0].toUpperCase())}</div>
-  <h3>${esc(u.name||'')}</h3><p>${esc(u.email)}</p>
-  <div class="acct-stats"><div><span>Paper</span><b>${money(ACC.paper)}</b></div><div><span>Open</span><b>${ACC.positions.length}</b></div><div><span>Recent trades</span><b>${h.length}${h.length?` · ${wins} won`:''}</b></div><div><span>Recent P&amp;L</span><b class="${net>=0?'up':'down'}">${net>=0?'+':'−'}${fmt2(Math.abs(net))}</b></div></div>
-  <div class="opts"><button class="btn-oauth" data-signout>Sign out</button></div>`);
+  openSheet(`<div class="acct-pic">${esc(u.name[0].toUpperCase())}</div>
+  <h3>${esc(u.name)}</h3><p>Member since ${new Date(ACC.created).toLocaleDateString([], {month:'short',day:'numeric',year:'numeric'})}</p>
+  <div class="acct-stats"><div><span>Paper</span><b>${money(ACC.paper)}</b></div><div><span>Open</span><b>${ACC.positions.length}</b></div><div><span>Trades</span><b>${h.length}${h.length?` · ${wins} won`:''}</b></div><div><span>Realized P&amp;L</span><b class="${net>=0?'up':'down'}">${net>=0?'+':'−'}${fmt2(Math.abs(net))}</b></div></div>
+  <div class="opts"><button class="btn-oauth" data-signout>Log out</button></div>`);
 }
 function topUpSheet(){
   openSheet(`<h3>Top up</h3><p>${S.cur==='paper'?'Add Paper to practice with. It’s free.':'Apple Pay, Google Pay, card or crypto.'}</p>
   <div class="topup-grid">${[100,500,1000,2500,5000,10000].map(v=>`<button data-topup="${v}">${v.toLocaleString()}</button>`).join('')}</div>`);
 }
 
-/* ---------- account sync ---------- */
-async function loadAccount(){
-  try{ACC=await api('account')}catch(e){ACC=null}
-  renderAll();
-}
-let lastSync=0;
-async function syncIfLiquidated(){
-  if(!signedIn()||Date.now()-lastSync<4000)return;
-  if(ACC.positions.some(p=>pnl(p)<=-p.amount)||Date.now()-lastSync>30000){
-    lastSync=Date.now();
-    const before=new Set(ACC.positions.map(p=>p.id));
-    try{ACC=await api('account')}catch(e){if(e.status===401){ACC=null}return renderAll()}
-    const gone=(ACC.history||[]).filter(p=>before.has(p.id)&&p.status==='liquidated');
-    gone.forEach(p=>toast(`${p.sym} ${p.side} was liquidated`));
-    renderAll();
-  }
-}
-
 /* ---------- events ---------- */
 document.addEventListener('click',e=>{
+  const tab=e.target.closest('#tabbar a');
+  if(tab){e.preventDefault();closeSheet();closeTrade();const k=tab.dataset.tab;
+    if(k==='home'){go('/app')}
+    else if(k==='markets'){if(route().view!=='dash')go('/app');requestAnimationFrame(()=>$('#marketsBlock')?.scrollIntoView({behavior:'smooth',block:'start'}))}
+    else if(k==='search'){searchSheet()}
+    else if(k==='account'){signedIn()?accountSheet():loginSheet()}
+    return}
+  if(e.target.closest('#asideScrim')){closeTrade();return}
+  const dk=e.target.closest('[data-dock]');if(dk){openTrade(dk.dataset.dock);return}
   const nav=e.target.closest('[data-nav],a.mrow');
-  if(nav&&!e.metaKey&&!e.ctrlKey&&e.button===0){e.preventDefault();S.q='';$('#search').value='';renderSearchPop();go(nav.dataset.nav||nav.getAttribute('href'));return}
+  if(nav&&!e.metaKey&&!e.ctrlKey&&e.button===0){e.preventDefault();closeSheet();S.q='';$('#search').value='';renderSearchPop();go(nav.dataset.nav||nav.getAttribute('href'));return}
   const t=e.target.closest('button,[data-close]');if(!t)return;
   if(t.dataset.close!==undefined){closeSheet();return}
   if(t.dataset.signin!==undefined){loginSheet();return}
-  if(t.dataset.signout!==undefined){api('auth',{method:'DELETE'}).finally(()=>{ACC=null;closeSheet();renderAll();toast('Signed out')});return}
-  if(t.dataset.gnotready!==undefined){toast('Google sign-in turns on once the site has its Google client ID');return}
+  if(t.dataset.signout!==undefined){ACC=null;setSession(null);closeSheet();renderAll();toast('Logged out');return}
+  if(t.dataset.auth){loginSheet(t.dataset.auth);return}
   if(t.dataset.cur){
     if(t.dataset.cur==='cash'){S.cur='cash';renderAll();if(!signedIn())loginSheet();else toast('Cash trading is coming soon. Practice with Paper for now.');return}
     S.cur='paper';renderAll();return}
   if(t.dataset.f){S.filter=t.dataset.f;document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('on',b===t));renderRows();return}
   if(t.dataset.tf){S.tf=t.dataset.tf;save();renderTicker();return}
   if(t.dataset.ct){S.ct=t.dataset.ct;save();document.querySelectorAll('#ctype button').forEach(b=>b.classList.toggle('on',b===t));buildChart();return}
+  if(t.id==='ribbonBtn'){S.ribbon=!S.ribbon;save();t.classList.toggle('on',S.ribbon);S.ribbon?addRibbon():removeRibbon();return}
   if(t.dataset.side){S.side=t.dataset.side;save();updateTrade();return}
   if(t.dataset.amt){S.amount=t.dataset.amt==='max'?Math.floor(balance()*100)/100:+t.dataset.amt;$('#tAmount').value=S.amount;save();updateTrade();return}
   if(t.dataset.mult){S.mult=+t.dataset.mult;$('#tSlider').value=multToSlider(S.mult);save();updateTrade();return}
@@ -365,70 +472,63 @@ document.addEventListener('click',e=>{
   if(t.id==='tGo'){placeTrade();return}
 });
 document.addEventListener('submit',e=>{
-  if(e.target.id==='devForm'){e.preventDefault();finishLogin('dev:'+$('#devEmail').value.trim())}
+  if(e.target.id==='authForm'){e.preventDefault();submitAuth(e.target)}
 });
 document.addEventListener('input',e=>{
   if(e.target.id==='tAmount'){const v=parseFloat(e.target.value.replace(/[^0-9.]/g,''));S.amount=isNaN(v)?0:v;save();updateTrade()}
   if(e.target.id==='tSlider'){S.mult=sliderToMult(+e.target.value);save();updateTrade()}
+  if(e.target.id==='msearch'){renderMobileSearch(e.target.value.trim())}
   if(e.target.id==='search'){S.q=e.target.value.trim();renderSearchPop();if(route().view==='dash')renderRows()}
 });
 document.addEventListener('keydown',e=>{
   if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){e.preventDefault();$('#search').focus()}
-  if(e.key==='Escape'){closeSheet();S.q='';$('#search').value='';renderSearchPop();$('#search').blur();if(route().view==='dash')renderRows()}
+  if(e.key==='Enter'&&e.target.id==='msearch'){const m=visibleMarkets(e.target.value.trim())[0];if(m){closeSheet();go('/m/'+m.sym)}}
+  if(e.key==='Escape'){closeSheet();closeTrade();S.q='';$('#search').value='';renderSearchPop();$('#search').blur();if(route().view==='dash')renderRows()}
   if(e.key==='Enter'&&e.target.id==='search'){const m=visibleMarkets(S.q)[0];if(m){S.q='';e.target.value='';renderSearchPop();e.target.blur();go('/m/'+m.sym)}}
 });
 document.addEventListener('focusout',e=>{if(e.target.id==='search')setTimeout(()=>$('#searchPop').classList.remove('open'),150)});
 document.addEventListener('focusin',e=>{if(e.target.id==='search'&&S.q)renderSearchPop()});
 
-/* ---------- trading ---------- */
-async function placeTrade(){
-  if(S.cur==='cash'){loginSheet();return}
-  const m=BY_SYM[S.sel];
-  if(signedIn()){
-    busy=true;updateTrade();
-    try{ACC=await api('account',{body:{op:'open',sym:m.sym,side:S.side,amount:S.amount,mult:S.mult}});const p=ACC.positions[0];
-      toast(`${S.side==='long'?'Longed':'Shorted'} ${m.sym} at ${fmtPrice(p?.entry??m.price)} · ${S.mult}×`)}
-    catch(e){toast(esc(e.message))}
-    busy=false;renderAll();return;
-  }
-  S.paper-=S.amount;
-  S.positions.unshift({id:Date.now().toString(36),sym:m.sym,side:S.side,amount:S.amount,mult:S.mult,entry:m.price});
-  save();renderAll();
+/* ---------- trading (guest account or the signed-in user's, both in this browser) ---------- */
+function placeTrade(){
+  if(S.cur==='cash'){if(!signedIn())loginSheet();else toast('Cash trading is coming soon. Practice with Paper for now.');return}
+  const m=BY_SYM[S.sel],a=acct();
+  if(!canTrade(m)||!(S.amount>0)||S.amount>a.paper)return;
+  a.paper-=S.amount;
+  a.positions.unshift({id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),sym:m.sym,side:S.side,amount:S.amount,mult:S.mult,entry:m.price,opened:Date.now()});
+  persist();closeTrade();renderAll();haptic('success');
   toast(`${S.side==='long'?'Longed':'Shorted'} ${m.sym} at ${fmtPrice(m.price)} · ${S.mult}×`);
 }
-async function closePosition(id,liquidated){
-  if(signedIn()){
-    try{const r=await api('account',{body:{op:'close',id}});ACC=r;const p=r.history.find(h=>h.id===id);
-      toast(p?`Closed ${p.sym} · ${p.pnl>=0?'+':'−'}${fmt2(Math.abs(p.pnl))}`:'Closed')}
-    catch(e){toast(esc(e.message))}
-    renderAll();return;
-  }
-  const i=S.positions.findIndex(p=>p.id===id);if(i<0)return;
-  const p=S.positions[i],v=pnl(p);
-  S.paper+=Math.max(0,p.amount+v);S.positions.splice(i,1);save();renderAll();
+function closePosition(id,liquidated){
+  const a=acct(),i=a.positions.findIndex(p=>p.id===id);if(i<0)return;
+  const p=a.positions[i],m=BY_SYM[p.sym],v=pnl(p);
+  a.paper+=Math.max(0,p.amount+v);a.positions.splice(i,1);
+  (a.history??=[]).unshift({...p,exit:m.price,pnl:v,status:liquidated?'liquidated':'closed',closed:Date.now()});
+  a.history.length=Math.min(a.history.length,100);
+  persist();renderAll();
+  haptic(liquidated||v<0?'error':'success');
   toast(liquidated?`${p.sym} ${p.side} was liquidated`:`Closed ${p.sym} · ${v>=0?'+':'−'}${fmt2(Math.abs(v))}`);
 }
-async function topUp(n){
-  if(S.cur!=='paper'){closeSheet();loginSheet();return}
-  if(signedIn()){try{ACC=await api('account',{body:{op:'topup',amount:n}})}catch(e){return toast(esc(e.message))}}
-  else{S.paper+=n;save()}
+function topUp(n){
+  if(S.cur!=='paper'){closeSheet();if(!signedIn())loginSheet();return}
+  acct().paper+=n;persist();
   closeSheet();renderAll();toast(`<span class="cur-icon sm paper"></span>Added ${n.toLocaleString()} Paper`);
 }
 
 function renderAll(){
   renderHeader();
   if(route().view==='dash'){renderPositions();renderRows();renderHistory()}
+  else{renderTickerPositions();syncPriceLines()}
   if(!$('#tGo')||$('#tradeTitle').hidden!==(route().view!=='ticker'))renderTrade();else updateTrade();
 }
 onTick(()=>{
-  if(!signedIn()) for(const p of [...S.positions]) if(pnl(p)<=-p.amount) closePosition(p.id,true);
-  syncIfLiquidated();
+  for(const p of [...positions()]) if(pnl(p)<=-p.amount) closePosition(p.id,true);
   renderHeader();
   if(route().view==='dash'){renderPositions();renderRows()}
-  else{updateTickerPrice();tickChart()}
+  else{updateTickerPrice();tickChart();renderTickerPositions();updateDock()}
   updateTrade();
 });
 
 applyRoute();
 startFeed();
-api('config').then(async c=>{CFG=c;if(c.accounts&&(await api('auth')).user)return loadAccount()}).catch(()=>{});
+try{const id=localStorage.getItem(SKEY);if(id&&USERS[id])startSession(id)}catch(e){}

@@ -232,3 +232,192 @@
   .tk-stats{gap:14px;flex-wrap:wrap}
   .btn-signin{padding:0 12px}
 }
+
+/* ================= polish pass ================= */
+body{font-feature-settings:"tnum" 1,"cv11" 1}
+.mono,.mrow-price,.mrow-change,.pf-total,.tk-price,.pc-big,.summary b{font-variant-numeric:tabular-nums}
+:focus-visible{outline:2px solid rgba(244,244,245,.6);outline-offset:2px;border-radius:8px}
+.card{transition:border-color .2s}
+.btn-primary,.chip,.tab,.seg button,.btn-close,.btn-tp{transition:transform .15s cubic-bezier(.2,.8,.2,1),background .2s,box-shadow .25s,border-color .2s,color .2s}
+.chip:active,.seg button:active,.btn-tp:active,.btn-close:active{transform:scale(.96)}
+.seg button.on.long{box-shadow:0 6px 24px -8px rgba(47,224,138,.7)}
+.seg button.on.short{box-shadow:0 6px 24px -8px rgba(255,84,112,.7)}
+.btn-block.long{box-shadow:0 10px 30px -12px rgba(47,224,138,.8)}
+.btn-block.short{box-shadow:0 10px 30px -12px rgba(255,84,112,.8)}
+.btn-block.long:hover,.btn-block.short:hover{transform:translateY(-1px)}
+
+/* open P&L under the portfolio value */
+.pf-pnl:empty{display:none}
+.pf-pnl{margin:-4px 0 10px}
+.pnl-pill{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:14px;font-weight:500;padding:5px 12px;border-radius:999px}
+.pnl-pill.up{background:rgba(47,224,138,.12);color:var(--green)}
+.pnl-pill.down{background:rgba(255,84,112,.12);color:var(--red)}
+
+/* position cards */
+.pcards{display:grid;gap:10px}
+.pcard{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr) auto;align-items:center;gap:20px;padding:16px 18px;border-radius:16px;background:var(--card);border:1px solid var(--line);position:relative;overflow:hidden;transition:border-color .3s,background .3s}
+.pcard.win{border-color:rgba(47,224,138,.35);background:linear-gradient(100deg,rgba(47,224,138,.09),rgba(47,224,138,0) 60%),var(--card)}
+.pcard.danger{border-color:rgba(255,84,112,.4);background:linear-gradient(100deg,rgba(255,84,112,.09),rgba(255,84,112,0) 60%),var(--card)}
+.pcard.danger::after{content:"";position:absolute;inset:0;border-radius:inherit;box-shadow:inset 0 0 0 1px rgba(255,84,112,.6);animation:breathe 1.6s ease-in-out infinite;pointer-events:none}
+.pc-id{display:flex;align-items:center;gap:12px;min-width:0;color:var(--text)}
+.pc-big{font-family:var(--mono);font-size:22px;font-weight:600;letter-spacing:-.5px;display:flex;align-items:baseline;gap:8px}
+.pc-big small{font-size:13px;font-weight:500;opacity:.85}
+.pc-meter{height:4px;border-radius:2px;background:rgba(255,255,255,.07);margin:8px 0 6px;overflow:hidden}
+.pc-meter i{display:block;height:100%;border-radius:2px;background:linear-gradient(90deg,#facc15,#ff8a3d,#ff5470);transition:width .4s}
+.pcard.win .pc-meter i{width:0!important}
+.pc-sub{font-size:12px;color:var(--faint)}
+.pcard.win .pc-sub{color:var(--mint)}
+.btn-tp{height:46px;padding:0 18px;border-radius:999px;background:var(--green);color:#03140b;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.1;min-width:132px;box-shadow:0 0 0 0 rgba(47,224,138,.55),0 10px 26px -10px rgba(47,224,138,.9);animation:tp 2s ease-out infinite}
+.btn-tp span{font-size:11px;font-weight:700;letter-spacing:.9px;text-transform:uppercase}
+.btn-tp b{font-family:var(--mono);font-size:15px;font-weight:600}
+.btn-tp:hover{transform:translateY(-1px);background:#45f09c}
+@keyframes tp{0%{box-shadow:0 0 0 0 rgba(47,224,138,.5),0 10px 26px -10px rgba(47,224,138,.9)}70%,100%{box-shadow:0 0 0 12px rgba(47,224,138,0),0 10px 26px -10px rgba(47,224,138,.9)}}
+@keyframes breathe{50%{opacity:.25}}
+.pcard.danger .btn-close{background:rgba(255,84,112,.14);border-color:rgba(255,84,112,.4);color:var(--red)}
+.tk-pos{margin-top:32px}
+.tk-pos h2{font-size:18px;font-weight:600;letter-spacing:-.2px;margin-bottom:12px}
+
+/* multiplier: risk gradient */
+.mult{display:flex;align-items:baseline;gap:8px}
+.risk-word{font-family:var(--sans);font-size:12px;font-weight:600;letter-spacing:.4px;text-transform:uppercase;transition:color .2s}
+.mult-num{font-size:18px;font-weight:600;transition:color .2s}
+.slider{height:6px;border-radius:3px;margin:10px 0 8px;
+  background:
+    linear-gradient(to right,transparent var(--p,66%),rgba(13,13,14,.82) var(--p,66%)),
+    linear-gradient(90deg,#2fe08a 0%,#facc15 33%,#ff8a3d 60%,#ff5470 80%,#e848ff 100%)}
+.slider::-webkit-slider-thumb{width:22px;height:22px;background:#fff;border:4px solid var(--thumb,#2fe08a);box-shadow:0 0 0 4px rgba(0,0,0,.6),0 0 18px var(--thumb,#2fe08a);transition:border-color .2s,box-shadow .2s}
+.slider::-moz-range-thumb{width:16px;height:16px;background:#fff;border:4px solid var(--thumb,#2fe08a);box-shadow:0 0 18px var(--thumb,#2fe08a)}
+#multChips .chip.on{border-color:var(--lv);color:var(--lv);background:color-mix(in srgb,var(--lv) 12%,var(--field));box-shadow:0 0 16px -6px var(--lv)}
+.move{font-size:12px;color:var(--faint);display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:2px 0 4px}
+.move:empty{display:none}
+.move b{font-family:var(--mono);font-weight:600}
+
+/* EMA ribbon toggle */
+.ctype-sep{width:1px;background:var(--line);margin:4px 2px}
+.ribbon-btn{height:30px;padding:0 12px 0 10px;border-radius:7px;font-size:13px;font-weight:500;color:var(--faint);display:flex;align-items:center;gap:8px}
+.ribbon-btn:hover{color:var(--text)}
+.ribbon-btn.on{background:#2a2a2e;color:var(--text)}
+.ribbon-swatch{width:16px;height:10px;border-radius:3px;background:linear-gradient(180deg,#ff2e5b,#cf44a1,#9157d9,#6262ff);opacity:.5}
+.ribbon-btn.on .ribbon-swatch{opacity:1;box-shadow:0 0 10px rgba(207,68,161,.6)}
+
+/* username + password form */
+.authform{display:grid;gap:10px;margin-top:24px}
+.authform input{height:50px;border-radius:12px;background:var(--field);border:1px solid var(--line);color:var(--text);padding:0 16px;font:inherit;font-size:15px;outline:0;transition:border-color .2s}
+.authform input:focus{border-color:rgba(47,224,138,.55)}
+.authform .btn-block{margin-top:6px}
+.autherr{min-height:18px;font-size:13px;color:var(--red);text-align:left}
+.autherr:empty{min-height:0}
+
+@media (max-width:700px){
+  .pcard{grid-template-columns:1fr auto;gap:12px}
+  .pc-pnl{grid-column:1/-1;order:3}
+  .btn-tp{min-width:0;padding:0 14px}
+}
+@media (prefers-reduced-motion:reduce){
+  *{animation:none!important;transition:none!important}
+}
+
+/* ================= native-app feel (methods from Mimic) ================= */
+:root{
+  --sa-top:env(safe-area-inset-top,0px);
+  --sa-bottom:env(safe-area-inset-bottom,0px);
+  /* tab bar sits low like a native one: labels end just above the home indicator */
+  --nav-pad:max(8px,calc(var(--sa-bottom) - 14px));
+  --nav-h:calc(58px + var(--nav-pad));
+  --ease:cubic-bezier(.2,.8,.2,1);
+}
+*{-webkit-tap-highlight-color:transparent}
+/* the page never moves like a website: no rubber-band, no sideways drift, no zoom (iOS reads this from <html>) */
+html{-webkit-text-size-adjust:100%;touch-action:manipulation;overscroll-behavior:none}
+body{overscroll-behavior:none}
+button,a,label,.chip,.seg,.tab,.mrow,.pcard,.tabbar,.dock{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+input,textarea{-webkit-user-select:text;user-select:text;-webkit-touch-callout:default}
+img,svg{-webkit-user-drag:none;-webkit-touch-callout:none}
+.tabbar a,.icon-btn,.dock-btn,.mrow{transition:transform .12s var(--ease),background .12s}
+.tabbar a:active,.icon-btn:active,.dock-btn:active{transform:scale(.92)}
+.tabbar,.dock,.aside-scrim,.mfoot{display:none}
+.tabbar[hidden],.dock[hidden]{display:none!important}
+
+@media (max-width:999px){
+  /* App shell: <body> is pinned to the screen and only #scroller scrolls inside it */
+  html{height:100%;background:#050505}
+  body{position:fixed;inset:0;overflow:hidden;height:auto}
+  #scroller{position:absolute;inset:0;overflow-x:hidden;overflow-y:auto;overscroll-behavior-y:contain;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding-bottom:calc(var(--nav-h) + 20px)}
+  #scroller::-webkit-scrollbar{display:none}
+  body.ticker-mode #scroller{padding-bottom:calc(var(--nav-h) + 96px)}
+
+  /* top bar under the status bar */
+  .topbar{padding-top:var(--sa-top);background:rgba(5,5,5,.86)}
+  .topbar-inner{height:56px;padding:8px 16px}
+  .logo{font-size:18px}
+  .cur-switch button{height:30px;font-size:12px}
+  .cur-icon{width:18px;height:18px}
+
+  /* tab bar */
+  .tabbar{display:grid;grid-template-columns:repeat(4,1fr);position:fixed;left:0;right:0;bottom:0;z-index:40;
+    padding:8px 10px var(--nav-pad);background:rgba(10,10,11,.82);-webkit-backdrop-filter:blur(22px) saturate(1.4);backdrop-filter:blur(22px) saturate(1.4);
+    border-top:1px solid rgba(255,255,255,.07)}
+  .tabbar a{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:10.5px;font-weight:500;color:var(--faint);padding:2px 0}
+  .tabbar a.on{color:var(--text);font-weight:600}
+  .tabbar a.on svg{filter:drop-shadow(0 0 8px rgba(47,224,138,.45));color:var(--green)}
+
+  /* ticker page: Long / Short dock above the tab bar */
+  .dock{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;align-items:center;position:fixed;left:0;right:0;bottom:var(--nav-h);z-index:39;
+    padding:10px 16px;background:rgba(10,10,11,.9);-webkit-backdrop-filter:blur(22px);backdrop-filter:blur(22px);border-top:1px solid rgba(255,255,255,.06)}
+  .dock-price{display:flex;flex-direction:column;line-height:1.15}
+  .dock-price span{font-size:12px;color:var(--faint);font-weight:600}
+  .dock-price b{font-family:var(--mono);font-size:16px;font-weight:600}
+  .dock-btn{height:48px;border-radius:14px;font-size:16px;font-weight:700;color:#000}
+  .dock-btn.long{background:var(--green);box-shadow:0 8px 22px -10px rgba(47,224,138,.9)}
+  .dock-btn.short{background:var(--red);box-shadow:0 8px 22px -10px rgba(255,84,112,.9)}
+
+  /* the trade panel: hidden on the home screen, a bottom sheet on ticker pages */
+  .dash-aside{padding-top:0}
+  body:not(.ticker-mode) .dash-aside{display:none}
+  body.ticker-mode .dash-aside{position:fixed;left:0;right:0;bottom:0;z-index:61;max-height:90dvh;overflow-y:auto;overscroll-behavior:contain;
+    background:#0d0d0e;border-radius:24px 24px 0 0;border-top:1px solid rgba(255,255,255,.08);padding:10px 16px calc(16px + var(--sa-bottom));
+    transform:translateY(105%);transition:transform .34s var(--ease);box-shadow:0 -18px 50px rgba(0,0,0,.5)}
+  body.ticker-mode .dash-aside::before{content:"";display:block;width:40px;height:5px;border-radius:3px;background:rgba(255,255,255,.18);margin:0 auto 6px}
+  body.trade-open .dash-aside{transform:none}
+  body.ticker-mode .dash-aside .panel{position:static;border:0;background:none;padding:0}
+  body.ticker-mode .trade-title{margin:6px 0 12px}
+  .aside-scrim{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.55);opacity:0;pointer-events:none;transition:opacity .3s;display:block}
+  body.trade-open .aside-scrim{opacity:1;pointer-events:auto}
+
+  /* modals become bottom sheets */
+  .sheet-root{align-items:flex-end}
+  .sheet{width:100%;max-width:none;border-radius:24px 24px 0 0;border:0;border-top:1px solid rgba(47,224,138,.25);padding:14px 20px calc(22px + var(--sa-bottom));max-height:92dvh;overflow-y:auto;animation:sheetup .34s var(--ease)}
+  .sheet::before{content:"";display:block;width:40px;height:5px;border-radius:3px;background:rgba(255,255,255,.18);margin:0 auto 18px}
+  @keyframes sheetup{from{transform:translateY(40px);opacity:.4}}
+  .msearch{width:100%;height:50px;margin-top:16px;border-radius:12px;background:var(--field);border:1px solid var(--line);color:var(--text);padding:0 16px;font:inherit;outline:0}
+  .msr{margin-top:10px;text-align:left;max-height:58dvh;overflow-y:auto}
+  .msr .sp-row{padding:10px 6px}
+  .sp-r{margin-left:auto;display:flex;flex-direction:column;align-items:flex-end;font-size:13px}
+
+  /* iOS zooms into inputs under 16px */
+  input,.authform input,.msearch{font-size:16px!important}
+  .amount-input input{font-size:22px!important}
+
+  .toast{bottom:calc(var(--nav-h) + 16px)}
+  body.ticker-mode .toast{bottom:calc(var(--nav-h) + 84px)}
+  .mfoot{display:block;text-align:center;font-size:11px;color:var(--faint);padding:8px 16px 0}
+
+  /* denser home screen */
+  .dash-main{padding-top:24px}
+  .block{margin-top:32px}
+  .mrow{height:64px}
+  .mrow:active{background:#161618}
+}
+
+/* iOS sometimes lays a home-screen app out a status bar short: stretch over the dead strip */
+html.fill body{bottom:calc(-1 * var(--fill));transform:translateZ(0)}
+/* Portrait lock: turned sideways, the app turns back so it stays upright like a portrait-only native app */
+html.rot-l body,html.rot-r body{inset:auto;top:50%;left:50%;width:100vh;height:100vw}
+html.rot-l body{transform:translate(-50%,-50%) rotate(-90deg)}
+html.rot-r body{transform:translate(-50%,-50%) rotate(90deg)}
+html.rot-l{--sa-top:env(safe-area-inset-left,0px);--sa-bottom:10px}
+html.rot-r{--sa-top:env(safe-area-inset-right,0px);--sa-bottom:10px}
+
+.ribbon-btn{white-space:nowrap}
+.tag{margin-left:7px;font-size:11px;font-weight:600;padding:2px 7px;border-radius:6px;vertical-align:1px}
+.tk-tools .ctype{flex:none}
