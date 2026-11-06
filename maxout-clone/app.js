@@ -117,9 +117,7 @@ function posCard(p){
   const liq=p.entry*(1+(p.side==='long'?-1:1)/p.mult);
   const risk=Math.min(1,Math.max(0,-v/p.amount)); // 0 = safe, 1 = liquidated
   const state=win?'win':risk>.7?'danger':'lose';
-  const cta=win
-    ?`<button class="btn-tp" data-close-pos="${p.id}">Take profit</button>`
-    :`<button class="btn-close" data-close-pos="${p.id}">Take profit</button>`;
+  const cta=`<button class="btn-tp" data-close-pos="${p.id}">Take profit</button>`;
   return `<div class="pcard ${state}">
     <a class="pc-id" href="/m/${p.sym}" data-nav="/m/${p.sym}">${iconHTML(p.sym,36)}<div class="stack">
       <div class="sym">${p.sym}<span class="tag ${p.side}">${p.side==='long'?'LONG':'SHORT'} ${p.mult}×</span></div>
