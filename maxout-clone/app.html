@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>maxout.so</title>
+<link rel="icon" href="favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="logo" href="/">maxout.so</a>
+    <label class="search">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+      <input id="search" placeholder="Search markets" autocomplete="off">
+      <kbd>⌘K</kbd>
+    </label>
+    <div class="topbar-right">
+      <div class="cur-switch" id="curSwitch">
+        <button data-cur="paper" class="on"><span class="cur-icon paper"></span>Paper</button>
+        <button data-cur="cash"><span class="cur-icon cash"></span>Cash</button>
+      </div>
+      <div class="avail-chip"><span class="faint">Available to trade</span> <span class="money" id="availTop"></span></div>
+      <button class="avatar" id="avatar">V</button>
+    </div>
+  </div>
+</header>
+
+<div class="dash-body">
+  <main class="dash-main">
+    <section class="portfolio">
+      <div class="pf-label">Portfolio value
+        <button class="icon-btn" id="eye" title="Hide balance"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
+      </div>
+      <div class="pf-total"><span class="cur-icon big paper" id="pfIcon"></span><span id="pfTotal"></span></div>
+      <div class="pf-sub" id="pfSub">Practice with Paper. It refills to 1,000 every day.</div>
+      <div class="pf-actions"><button class="btn-primary" id="topUp"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Top up</button></div>
+    </section>
+
+    <section class="block">
+      <div class="block-head"><h2>Positions</h2></div>
+      <div id="positions"></div>
+    </section>
+
+    <section class="block">
+      <div class="block-head"><h2>Markets</h2><span class="feed-status"><span class="feed-dot"></span><span id="feedText"></span></span></div>
+      <div class="tabs" id="tabs">
+        <button class="tab on" data-f="all">All</button>
+        <button class="tab" data-f="stock">Stocks</button>
+        <button class="tab" data-f="crypto">Crypto</button>
+        <button class="tab" data-f="movers">Movers</button>
+      </div>
+      <div class="card list">
+        <div class="mhead"><span>Market</span><span class="c-spark">Intraday</span><span class="r">Price</span><span class="r">Today</span></div>
+        <div id="rows"></div>
+      </div>
+    </section>
+  </main>
+
+  <aside class="dash-aside">
+    <div class="card panel trade" id="trade"></div>
+  </aside>
+</div>
+
+<div class="sheet-root" id="sheet">
+  <div class="sheet-backdrop" data-close></div>
+  <div class="sheet" id="sheetBody"></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script src="markets.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
