@@ -126,3 +126,43 @@ function startFeed(){
   loadHistory().then(pollPrices);
   setInterval(pollPrices,3000);
 }
+
+// Candles for the ticker page. Returns [{time (seconds, shifted to local time for display), open, high, low, close, value}].
+const TF = {
+  live:{label:'Live',interval:'1m',span:2*3600e3,step:60e3},
+  '1d':{label:'1D',interval:'5m',span:24*3600e3,step:300e3},
+  '1w':{label:'1W',interval:'1h',span:7*864e5,step:3600e3},
+  '1m':{label:'1M',interval:'4h',span:30*864e5,step:4*3600e3},
+  '3m':{label:'3M',interval:'1d',span:90*864e5,step:864e5},
+};
+const TZ_SHIFT=-new Date().getTimezoneOffset()*60;
+async function candles(sym,tf){
+  const m=BY_SYM[sym],end=Date.now(),t=TF[tf];
+  const c=await hl({type:'candleSnapshot',req:{coin:coinOf(m),interval:t.interval,startTime:end-t.span,endTime:end}});
+  return (Array.isArray(c)?c:[]).map(x=>({time:Math.floor(x.t/1000)+TZ_SHIFT,open:+x.o,high:+x.h,low:+x.l,close:+x.c,value:+x.v}));
+}
+
+const ABOUT = {
+  NVDA:'NVIDIA designs graphics processors and system-on-chip units for gaming, professional visualization, data centers and AI. Its GPUs power much of the modern machine-learning industry.',
+  AAPL:'Apple makes the iPhone, Mac, iPad, Apple Watch and AirPods, and runs services like the App Store, iCloud and Apple Music for over two billion active devices.',
+  TSLA:'Tesla builds electric cars, batteries and solar products, and is working on self-driving software and humanoid robots.',
+  AMZN:'Amazon runs the largest online store in the US and Amazon Web Services, the biggest cloud computing platform in the world.',
+  META:'Meta owns Facebook, Instagram, WhatsApp and Messenger, and builds AI models and virtual-reality headsets under the Quest brand.',
+  MSFT:'Microsoft makes Windows, Office and the Xbox, and runs Azure, one of the largest cloud platforms. It is a major backer of OpenAI.',
+  GOOGL:'Alphabet is the parent of Google: Search, YouTube, Android, Chrome, Google Cloud and the Gemini AI models.',
+  COIN:'Coinbase runs the largest regulated crypto exchange in the US, plus custody, staking and the Base blockchain.',
+  HOOD:'Robinhood is a commission-free trading app for stocks, options and crypto, with retirement accounts and a credit card.',
+  AMD:'AMD designs CPUs and GPUs for PCs, game consoles and data centers, and competes with NVIDIA in AI accelerators.',
+  NFLX:'Netflix is the largest paid streaming service in the world, producing films, series and live events in over 190 countries.',
+  PLTR:'Palantir builds data and AI platforms used by governments, militaries and large companies to run their operations.',
+  MSTR:'Strategy (formerly MicroStrategy) sells business software and holds one of the largest corporate Bitcoin treasuries.',
+  INTC:'Intel designs and manufactures processors for PCs and servers and is building out a contract chip-making business.',
+  BTC:'Bitcoin is the first and largest cryptocurrency: a fixed supply of 21 million coins secured by a global proof-of-work network.',
+  ETH:'Ethereum is a programmable blockchain that runs smart contracts, stablecoins, DeFi and NFTs. ETH pays for its transactions.',
+  SOL:'Solana is a fast, low-fee blockchain popular for trading, payments and memecoins.',
+  XRP:'XRP is the native token of the XRP Ledger, built for quick, cheap cross-border payments.',
+  DOGE:'Dogecoin started as a joke in 2013 and became one of the most traded cryptocurrencies, with a large online community.',
+  LINK:'Chainlink is an oracle network that brings real-world data like prices onto blockchains for smart contracts.',
+  ADA:'Cardano is a proof-of-stake blockchain built with a research-first approach to security and scaling.',
+  LTC:'Litecoin is one of the oldest cryptocurrencies, a lighter, faster-confirming cousin of Bitcoin.',
+};

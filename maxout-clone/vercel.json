@@ -1,1 +1,4 @@
-{ "cleanUrls": true }
+{
+  "cleanUrls": true,
+  "rewrites": [{ "source": "/m/:sym", "destination": "/app" }]
+}

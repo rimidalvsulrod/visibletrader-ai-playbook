@@ -4,20 +4,21 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maxout.so</title>
-<link rel="icon" href="favicon.svg">
+<link rel="icon" href="/favicon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="shared.css">
-<link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="/shared.css">
+<link rel="stylesheet" href="/app.css">
 </head>
 <body>
 <header class="topbar">
   <div class="topbar-inner">
-    <a class="logo" href="/">maxout.so</a>
+    <a class="logo" href="/app" data-nav="/app">maxout.so</a>
     <label class="search">
       <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
       <input id="search" placeholder="Search markets" autocomplete="off">
       <kbd>⌘K</kbd>
+      <div class="search-pop" id="searchPop"></div>
     </label>
     <div class="topbar-right">
       <div class="cur-switch" id="curSwitch">
@@ -25,43 +26,81 @@
         <button data-cur="cash"><span class="cur-icon cash"></span>Cash</button>
       </div>
       <div class="avail-chip"><span class="faint">Available to trade</span> <span class="money" id="availTop"></span></div>
-      <button class="avatar" id="avatar">V</button>
+      <div id="who"></div>
     </div>
   </div>
 </header>
 
 <div class="dash-body">
   <main class="dash-main">
-    <section class="portfolio">
-      <div class="pf-label">Portfolio value
-        <button class="icon-btn" id="eye" title="Hide balance"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
-      </div>
-      <div class="pf-total"><span class="cur-icon big paper" id="pfIcon"></span><span id="pfTotal"></span></div>
-      <div class="pf-sub" id="pfSub">Practice with Paper. It refills to 1,000 every day.</div>
-      <div class="pf-actions"><button class="btn-primary" id="topUp"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Top up</button></div>
-    </section>
+    <div id="dashView">
+      <section class="portfolio">
+        <div class="pf-label">Portfolio value
+          <button class="icon-btn" id="eye" title="Hide balance"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
+        </div>
+        <div class="pf-total"><span class="cur-icon big paper" id="pfIcon"></span><span id="pfTotal"></span></div>
+        <div class="pf-sub" id="pfSub"></div>
+        <div class="pf-actions"><button class="btn-primary" id="topUp"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Top up</button></div>
+      </section>
 
-    <section class="block">
-      <div class="block-head"><h2>Positions</h2></div>
-      <div id="positions"></div>
-    </section>
+      <section class="block">
+        <div class="block-head"><h2>Positions</h2></div>
+        <div id="positions"></div>
+      </section>
 
-    <section class="block">
-      <div class="block-head"><h2>Markets</h2><span class="feed-status"><span class="feed-dot"></span><span id="feedText"></span></span></div>
-      <div class="tabs" id="tabs">
-        <button class="tab on" data-f="all">All</button>
-        <button class="tab" data-f="stock">Stocks</button>
-        <button class="tab" data-f="crypto">Crypto</button>
-        <button class="tab" data-f="movers">Movers</button>
+      <section class="block">
+        <div class="block-head"><h2>Markets</h2><span class="feed-status"><span class="feed-dot"></span><span id="feedText"></span></span></div>
+        <div class="tabs" id="tabs">
+          <button class="tab on" data-f="all">All</button>
+          <button class="tab" data-f="stock">Stocks</button>
+          <button class="tab" data-f="crypto">Crypto</button>
+          <button class="tab" data-f="movers">Movers</button>
+        </div>
+        <div class="card list">
+          <div class="mhead"><span>Market</span><span class="c-spark">Intraday</span><span class="r">Price</span><span class="r">Today</span></div>
+          <div id="rows"></div>
+        </div>
+      </section>
+
+      <section class="block" id="historyBlock" hidden>
+        <div class="block-head"><h2>History</h2></div>
+        <div id="history"></div>
+      </section>
+    </div>
+
+    <div id="tickerView" hidden>
+      <a class="back" href="/app" data-nav="/app"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>Markets</a>
+      <div class="tk-head">
+        <div class="mrow-id" id="tkId"></div>
+        <button class="icon-btn share" id="share" title="Copy link"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 3v12M7 8l5-5 5 5"/><path d="M5 13v6a2 2 0 002 2h10a2 2 0 002-2v-6"/></svg></button>
       </div>
-      <div class="card list">
-        <div class="mhead"><span>Market</span><span class="c-spark">Intraday</span><span class="r">Price</span><span class="r">Today</span></div>
-        <div id="rows"></div>
+      <div class="tk-price-row">
+        <div>
+          <div class="tk-price" id="tkPrice"></div>
+          <div class="tk-chg" id="tkChg"></div>
+        </div>
+        <div class="tf" id="tf"></div>
       </div>
-    </section>
+      <div class="tk-chart-wrap">
+        <div class="tk-chart" id="tkChart"></div>
+        <div class="tk-loading" id="tkLoading">Loading chart…</div>
+      </div>
+      <div class="tk-tools">
+        <div class="ctype" id="ctype">
+          <button data-ct="line" title="Line"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 17l5-6 4 3 8-9"/><path d="M3 21h18"/></svg></button>
+          <button data-ct="candle" class="on" title="Candles"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M7 3v4M7 15v6M17 3v2M17 13v8"/><rect x="5" y="7" width="4" height="8" rx="1"/><rect x="15" y="5" width="4" height="8" rx="1"/></svg></button>
+        </div>
+        <div class="tk-stats" id="tkStats"></div>
+      </div>
+      <section class="tk-about">
+        <h2 id="tkAboutH"></h2>
+        <p id="tkAbout"></p>
+      </section>
+    </div>
   </main>
 
   <aside class="dash-aside">
+    <div class="trade-title" id="tradeTitle" hidden></div>
     <div class="card panel trade" id="trade"></div>
   </aside>
 </div>
@@ -72,7 +111,8 @@
 </div>
 <div class="toast" id="toast"></div>
 
-<script src="markets.js"></script>
-<script src="app.js"></script>
+<script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
+<script src="/markets.js"></script>
+<script src="/app.js"></script>
 </body>
 </html>
