@@ -119,7 +119,7 @@ function posCard(p){
   const state=win?'win':risk>.7?'danger':'lose';
   const cta=win
     ?`<button class="btn-tp" data-close-pos="${p.id}">Take profit</button>`
-    :`<button class="btn-close" data-close-pos="${p.id}">${risk>.7?'Cut loss':'Close'}</button>`;
+    :`<button class="btn-close" data-close-pos="${p.id}">Take profit</button>`;
   return `<div class="pcard ${state}">
     <a class="pc-id" href="/m/${p.sym}" data-nav="/m/${p.sym}">${iconHTML(p.sym,36)}<div class="stack">
       <div class="sym">${p.sym}<span class="tag ${p.side}">${p.side==='long'?'LONG':'SHORT'} ${p.mult}×</span></div>
