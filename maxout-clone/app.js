@@ -101,7 +101,7 @@ function renderHeader(){
   $('#pfTotal').innerHTML=S.hidden?'••••••':`${i}<span class="cents">.${c}</span>`;
   $('#pfIcon').className='cur-icon big '+S.cur;
   const open=S.cur==='paper'?positions():[],opnl=open.reduce((a,p)=>a+pnl(p),0);
-  $('#pfPnl').innerHTML=open.length&&!S.hidden?`<span class="pnl-pill ${opnl>=0?'up':'down'}">${opnl>=0?'▲ +':'▼ −'}${fmt2(Math.abs(opnl))} open P&amp;L</span>`:'';
+  $('#pfPnl').innerHTML=open.length&&!S.hidden?`<span class="pnl-pill ${opnl>=0?'up':'down'}">${opnl>=0?'+':'−'}${fmt2(Math.abs(opnl))}</span><span class="pnl-lbl">open P&amp;L</span>`:'';
   $('#pfSub').innerHTML=S.cur==='cash'?'Get Cash to trade for real stakes'
     :signedIn()?'Practice with Paper. It refills to 1,000 every day.'
     :'Practice with Paper. It refills to 1,000 every day. <button class="link" data-signin>Sign in</button> to keep it.';
@@ -118,7 +118,7 @@ function posCard(p){
   const risk=Math.min(1,Math.max(0,-v/p.amount)); // 0 = safe, 1 = liquidated
   const state=win?'win':risk>.7?'danger':'lose';
   const cta=win
-    ?`<button class="btn-tp" data-close-pos="${p.id}"><span>Take profit</span><b>+${fmt2(v)}</b></button>`
+    ?`<button class="btn-tp" data-close-pos="${p.id}">Take profit</button>`
     :`<button class="btn-close" data-close-pos="${p.id}">${risk>.7?'Cut loss':'Close'}</button>`;
   return `<div class="pcard ${state}">
     <a class="pc-id" href="/m/${p.sym}" data-nav="/m/${p.sym}">${iconHTML(p.sym,36)}<div class="stack">
@@ -127,7 +127,7 @@ function posCard(p){
     <div class="pc-pnl">
       <div class="pc-big ${v>=0?'up':'down'}">${v>=0?'+':'−'}${fmt2(Math.abs(v))}<small>${v>=0?'+':'−'}${Math.abs(pct).toFixed(1)}%</small></div>
       <div class="pc-meter" title="How close this trade is to liquidation"><i style="width:${(risk*100).toFixed(1)}%"></i></div>
-      <div class="pc-sub">${state==='win'?'In profit. Lock it in before it turns.':state==='danger'?`<b class="down">Near liquidation</b> at ${fmtPrice(liq)}`:`Liquidates at ${fmtPrice(liq)}`}</div>
+      <div class="pc-sub">${state==='win'?`Liquidates at ${fmtPrice(liq)}`:state==='danger'?`<b class="down">Near liquidation</b> at ${fmtPrice(liq)}`:`Liquidates at ${fmtPrice(liq)}`}</div>
     </div>
     ${cta}
   </div>`;
@@ -250,7 +250,7 @@ function updateTrade(){
   document.querySelectorAll('#amtChips .chip').forEach(b=>b.classList.toggle('on',+b.dataset.amt===S.amount));
   document.querySelectorAll('#multChips .chip').forEach(b=>b.classList.toggle('on',+b.dataset.mult===S.mult));
   const lv=multLevel(S.mult);
-  $('#tMult').innerHTML=`<span class="risk-word" style="color:${lv.c}">${lv.w}</span><span class="mult-num" style="color:${lv.c}">${S.mult}×</span>`;
+  $('#tMult').innerHTML=`<span class="mult-num" style="color:${lv.c}">${S.mult}×</span>`;
   $('#tSlider').style.setProperty('--p',(multToSlider(S.mult)/10)+'%');
   $('#tSlider').style.setProperty('--thumb',lv.c);
   $('#tMove').innerHTML=amt?`Every 1% your way <b class="up">+${fmt2(amt*S.mult/100)}</b><span>·</span>1% against <b class="down">−${fmt2(Math.min(amt,amt*S.mult/100))}</b>`:'';
@@ -296,12 +296,12 @@ async function buildChart(){
   $('#tkLoading').hidden=false;$('#tkLoading').textContent='Loading chart…';
   const chart=LightweightCharts.createChart(el,{
     autoSize:true,
-    layout:{background:{type:'solid',color:'transparent'},textColor:'#6b6b74',fontFamily:'Geist, sans-serif',fontSize:12},
+    layout:{background:{type:'solid',color:'transparent'},textColor:'#6b6b74',fontFamily:'-apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif',fontSize:11},
     grid:{vertLines:{visible:false},horzLines:{color:'rgba(255,255,255,.04)'}},
     rightPriceScale:{borderVisible:false,scaleMargins:{top:.12,bottom:.18}},
     timeScale:{borderVisible:false,timeVisible:S.tf!=='3m',secondsVisible:false,rightOffset:4},
     crosshair:{mode:0,vertLine:{color:'rgba(255,255,255,.25)',labelBackgroundColor:'#1c1c1f'},horzLine:{color:'rgba(255,255,255,.25)',labelBackgroundColor:'#1c1c1f'}},
-    watermark:{visible:true,text:'maxout.so',color:'rgba(255,255,255,.06)',fontSize:40,fontFamily:'Geist, sans-serif',fontStyle:'600',horzAlign:'right',vertAlign:'top'},
+    watermark:{visible:true,text:'maxout.so',color:'rgba(255,255,255,.06)',fontSize:36,fontFamily:'-apple-system, BlinkMacSystemFont, system-ui, sans-serif',fontStyle:'600',horzAlign:'right',vertAlign:'top'},
     handleScroll:{mouseWheel:true,pressedMouseMove:true,horzTouchDrag:true,vertTouchDrag:false},handleScale:{axisPressedMouseMove:true,mouseWheel:true,pinch:true},
   });
   const prec=precisionFor(m.price),pf={type:'price',precision:prec,minMove:1/10**prec};

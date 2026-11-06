@@ -3,8 +3,8 @@
   --text:#f4f4f5;--muted:#a1a1aa;--faint:#6b6b74;
   --green:#2fe08a;--red:#ff5470;--mint:#7fe8b5;
   --forest:#0e3b28;--blush:#f6cdbf;
-  --sans:Geist,ui-sans-serif,system-ui,-apple-system,sans-serif;
-  --mono:"Geist Mono",ui-monospace,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display","Helvetica Neue",system-ui,sans-serif;
+  --mono:"SF Mono",ui-monospace,Menlo,monospace;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:15px;-webkit-font-smoothing:antialiased}
@@ -12,3 +12,4 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
 a{color:inherit;text-decoration:none}
 .mono{font-family:var(--mono)}
 .up{color:var(--green)}.down{color:var(--red)}
+[hidden]{display:none!important}
