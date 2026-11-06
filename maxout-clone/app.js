@@ -12,24 +12,8 @@ const IS_IOS=/iP(hone|od|ad)/.test(navigator.userAgent)||(navigator.platform==='
 const HAPTIC_TARGETS='button, a[href], .tappable';
 const PULSES={light:[8],success:[10,70,14],error:[18,60,18,60,18]};
 function haptic(kind='light'){if(!IS_IOS&&navigator.vibrate)try{navigator.vibrate(PULSES[kind]||PULSES.light)}catch(e){}}
-if(IS_IOS){
-  const toggle=Object.assign(document.createElement('input'),{type:'checkbox',id:'haptic-switch',tabIndex:-1});
-  toggle.setAttribute('switch','');toggle.setAttribute('aria-hidden','true');
-  toggle.style.cssText='position:fixed;top:0;left:0;width:1px;height:1px;margin:0;opacity:0;pointer-events:none';
-  const pad=document.createElement('label');pad.htmlFor='haptic-switch';pad.setAttribute('aria-hidden','true');
-  pad.style.cssText='position:fixed;top:0;left:0;width:48px;height:48px;z-index:2147483647';
-  document.documentElement.append(toggle,pad);
-  let hideTimer=0;const hide=()=>{pad.style.transform='translate(-200px,-200px)'};hide();
-  document.addEventListener('pointerdown',e=>{
-    if(e.pointerType!=='touch'||e.target===pad)return;
-    const el=e.target.closest?.(HAPTIC_TARGETS);
-    if(!el||el.disabled||el.closest('input, textarea, select'))return;
-    pad.style.transform=`translate(${e.clientX-24}px,${e.clientY-24}px)`;
-    clearTimeout(hideTimer);hideTimer=setTimeout(hide,1500);
-  },true);
-  // pass the tap through to whatever is under the pad
-  pad.addEventListener('click',e=>{hide();const el=document.elementFromPoint(e.clientX,e.clientY);if(el&&el!==pad)el.click()});
-}
+// (iOS haptic overlay removed: it could deliver a tap twice)
+
 const KEY='maxout-clone-v1';
 const today=()=>new Date().toISOString().slice(0,10);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -118,7 +102,7 @@ function posCard(p){
   const risk=Math.min(1,Math.max(0,-v/p.amount)); // 0 = safe, 1 = liquidated
   const state=win?'win':risk>.7?'danger':'lose';
   const cta=`<button class="btn-tp" data-close-pos="${p.id}">Take profit</button>`;
-  return `<div class="pcard ${state}">
+  return `<div class="pcard ${state}" data-pid="${p.id}">
     <a class="pc-id" href="/m/${p.sym}" data-nav="/m/${p.sym}">${iconHTML(p.sym,36)}<div class="stack">
       <div class="sym">${p.sym}<span class="tag ${p.side}">${p.side==='long'?'LONG':'SHORT'} ${p.mult}×</span></div>
       <div class="pos-meta">${fmt2(p.amount)} in · entry ${fmtPrice(p.entry)}</div></div></a>
@@ -130,19 +114,35 @@ function posCard(p){
     ${cta}
   </div>`;
 }
+// Re-render only when the set of positions changes; otherwise update the live numbers in place.
+function patchCards(el,list){
+  const key=list.map(p=>p.id).join(',');
+  if(el.dataset.key===key&&el.querySelector('.pcards')){
+    for(const p of list){
+      const card=el.querySelector(`[data-pid="${p.id}"]`);if(!card)continue;
+      const tmp=document.createElement('div');tmp.innerHTML=posCard(p);const fresh=tmp.firstElementChild;
+      card.className=fresh.className;
+      card.querySelector('.pc-pnl').innerHTML=fresh.querySelector('.pc-pnl').innerHTML;
+    }
+    return false;
+  }
+  el.dataset.key=key;return true;
+}
 function renderPositions(){
   const el=$('#positions');
   const list=S.cur==='paper'?positions():[];
   if(!list.length){
+    el.dataset.key='';
     el.innerHTML=`<div class="empty">No open positions. ${S.cur==='paper'?'<b>Pick a market below.</b>':'<b>Top up, then pick a market.</b>'}</div>`;return;
   }
-  el.innerHTML=`<div class="pcards">${list.map(posCard).join('')}</div>`;
+  if(patchCards(el,list)) el.innerHTML=`<div class="pcards">${list.map(posCard).join('')}</div>`;
 }
 function renderTickerPositions(){
   const el=$('#tkPos');if(!el)return;
   const list=S.cur==='paper'?positions().filter(p=>p.sym===S.sel):[];
   el.hidden=!list.length;
-  el.innerHTML=list.length?`<h2>Your ${S.sel} position${list.length>1?'s':''}</h2><div class="pcards">${list.map(posCard).join('')}</div>`:'';
+  if(!list.length){el.dataset.key='';el.innerHTML='';return}
+  if(patchCards(el,list)) el.innerHTML=`<h2>Your ${S.sel} position${list.length>1?'s':''}</h2><div class="pcards">${list.map(posCard).join('')}</div>`;
 }
 
 function renderHistory(){
@@ -164,8 +164,22 @@ function visibleMarkets(q=S.q){
 }
 const lastPrice={};
 function renderRows(){
-  const list=visibleMarkets();
-  $('#rows').innerHTML=list.map(m=>{
+  const list=visibleMarkets(),box=$('#rows'),key=list.map(m=>m.sym).join(',')+'|'+S.sel;
+  if(box.dataset.key===key&&box.children.length){
+    for(const m of list){
+      const row=box.querySelector(`[data-sym="${m.sym}"]`);if(!row)continue;
+      const prev=lastPrice[m.sym];lastPrice[m.sym]=m.price;
+      const pr=row.querySelector('.mrow-price'),ch=row.querySelector('.mrow-change'),sp=row.querySelector('.mrow-spark path');
+      pr.textContent=fmtPrice(m.price);
+      if(prev&&prev!==m.price){pr.classList.remove('flash-up','flash-down');void pr.offsetWidth;pr.classList.add(m.price>prev?'flash-up':'flash-down')}
+      ch.textContent=fmtChg(m.chg);ch.className='mrow-change '+(m.chg>=0?'up':'down');
+      sp.setAttribute('d',sparkPath(m.series.slice(-120),80,28));sp.setAttribute('stroke',m.chg>=0?'var(--green)':'var(--red)');
+    }
+    $('#feedText').textContent=`Live from Hyperliquid · Stocks market ${stocksOpen()?'open':'closed'}`;
+    return;
+  }
+  box.dataset.key=key;
+  box.innerHTML=list.map(m=>{
     const dir=m.chg>=0?'up':'down',col=m.chg>=0?'var(--green)':'var(--red)';
     const prev=lastPrice[m.sym];lastPrice[m.sym]=m.price;
     const flash=prev&&prev!==m.price?(m.price>prev?'flash-up':'flash-down'):'';

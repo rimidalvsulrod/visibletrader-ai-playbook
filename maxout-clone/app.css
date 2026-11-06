@@ -411,3 +411,4 @@ html.rot-r{--sa-top:env(safe-area-inset-right,0px);--sa-bottom:10px}
 .tk-tools .ctype{flex:none}
 .ctype .ribbon-btn{width:auto;padding:0 12px 0 10px;gap:8px;color:var(--faint)}
 .ctype .ribbon-btn.on{color:var(--text)}
+@media (max-width:700px){.feed-status{max-width:58%;font-size:11px}.feed-status span:last-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
