@@ -409,3 +409,5 @@ html.rot-r{--sa-top:env(safe-area-inset-right,0px);--sa-bottom:10px}
 .ribbon-btn{white-space:nowrap}
 .tag{margin-left:7px;font-size:11px;font-weight:600;padding:2px 7px;border-radius:6px;vertical-align:1px}
 .tk-tools .ctype{flex:none}
+.ctype .ribbon-btn{width:auto;padding:0 12px 0 10px;gap:8px;color:var(--faint)}
+.ctype .ribbon-btn.on{color:var(--text)}
